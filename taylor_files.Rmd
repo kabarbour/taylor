@@ -1,0 +1,926 @@
+---
+title: "Taylor Swift EDA (part 2)"
+author: "Kaitlyn Barbour"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 3
+    css: taylortheme.css
+    fig_width: 8.75
+    self_contained: false
+---
+
+![](header.png)
+
+# Data Setup & Introduction {.tabset}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999) #prevent it from using scientific notation when knitting html
+
+#install.packages("taylor")
+
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(taylor)
+library(cowplot)
+library(ggalt)
+library(ggtext)
+library(plotly)
+library(DT)
+library(broom)
+library(tufte)
+library(reshape2)
+
+```
+
+## Importing Spotify Data
+
+Spotify audio features pulled from Spotify using [Exportify](https://watsonbox.github.io/exportify/)
+
+I did a bit of manual work to create an 'era' field to group songs together that were released at different times or on different versions (deluxe, platinum, etc) into the general era that the songs were released at.
+
+This is all then imported into R here. I do a few manipulations to make it more useful for later, including:
+
+-   Adding a `Taylor's Version` and `From the Vault` column
+
+-   Checking if `Taylor's Version` songs are rerecordings or new
+
+-   Create Abbreviations for long titles
+
+-   Creating a factor with the order of the eras so that they will display correctly in charts
+
+-   Specifying albums to exclude later.
+
+```{r importing data, warning=FALSE, paged.print=TRUE}
+
+#Import data from the excel spreadsheet
+spotify_features <- read_excel("Taylor Data 2.0.xlsx", sheet = "spotify_features",
+    col_types = c("text", "text", "numeric", 
+        "date", "text", "text", "text", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric"))
+
+# Add TV column based on the condition
+spotify_features <- spotify_features %>%
+  mutate(taylors_version = grepl("Taylor's Version", track_name))
+
+# Add FTV column based on the condition
+spotify_features <- spotify_features %>%
+  mutate(from_the_vault = grepl("From The Vault", track_name))
+
+# Check if TV is rerecording or new song
+spotify_features <- spotify_features %>%
+  mutate(rerecording = case_when(
+    grepl("Taylor's Version", era) & `taylors_version` == TRUE & `from_the_vault` == FALSE ~ TRUE,  #TV & FTV = FALSE
+    grepl("Taylor's Version", era) & `from_the_vault` == TRUE ~ FALSE,                              #Just TV = TRUE
+    TRUE ~ NA
+  ))
+
+#Create abbreviations for long titles
+spotify_features <- spotify_features %>%
+  mutate(era_abbreviated = case_when(
+    era == "THE TORTURED POETS DEPARTMENT" ~ "TTPD",
+    era == "Fearless (Taylor's Version)" ~ "Fearless (TV)",
+    era == "Speak Now (Taylor's Version)" ~ "Speak Now (TV)",
+    era == "Red (Taylor's Version)" ~ "Red (TV)",
+    era == "1989 (Taylor's Version)" ~ "1989 (TV)",
+    TRUE ~ era  # Keep the original value if it doesn't match the condition
+  ))
+
+#Create a factor with the order of the eras to display correctly & apply to dataframe
+era_order <- c("Taylor Swift", "The Taylor Swift Holiday Collection", "Fearless", "Speak Now", "Red", "1989", "reputation", "Lover", "folklore", "evermore",  "Fearless (TV)", "Red (TV)", "Midnights", "Speak Now (TV)", "1989 (TV)", "TTPD", "Collaboration/Project", "Standalone")
+
+spotify_features <- spotify_features %>%
+  mutate(era_abbreviated = factor(era_abbreviated, levels = era_order))
+
+#Exclude these albums/groups from certain visualizations
+eras_to_exclude <- c("Collaboration/Project", "Standalone", "The Taylor Swift Holiday Collection")
+```
+
+**Rows:** `r dim(spotify_features)[1]`
+
+**Columns:** `r dim(spotify_features)[2]`
+
+`r colnames(spotify_features)`
+
+`r rmarkdown::paged_table(spotify_features[,1:24])`
+
+## Import Producer Data
+
+The producer and writer data was pulled from [Genius](https://genius.com/). I used chatGPT to reformat the data from Genius into .csv format, which I added as a new tab to my spreadsheet.
+
+I then bring in the producer sheet, split each column into its own dataframe, pplit up multiple names into long data format, and then I join that with the `spotify_features` dataframe to get one long table with one producers associated with each song they are credited on.
+
+```{r join producer & writer data}
+
+producer_writer_all <- read_excel("Taylor Data 2.0.xlsx", 
+    sheet = "producers_writers")
+
+# break up producer into separate columns
+producer <- producer_writer_all[, c("track_name", "producer")]
+
+# split up multiple producers into separate columns, remove extra spaces
+producer <- producer %>%
+  separate_rows(producer, sep = "[,&]") %>%
+  mutate(producer = trimws(producer, "both"))
+
+# Inner join producer data with song data to get album information
+song_producers <- producer %>%
+  inner_join(spotify_features, by = "track_name")
+
+# Also add this to the spotify_features dataframe
+spotify_features <- spotify_features %>%
+  left_join(producer_writer_all, by = "track_name")
+
+rmarkdown::paged_table(song_producers[, 1:10])
+```
+
+## Color Palette Setup
+
+Create color palette & specify colors/opacity for top writers and producers
+
+```{r color palette stuff, class.source = "fold-show"}
+# colors for plot
+top_collaborator_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
+                                                     "Joe Alwyn" = "#b8b8b4", 
+                                                     "Aaron Dessner" = "#ecedee",
+                                                     "Jack Antonoff" = "#454d64", 
+                                                     "Nathan Chapman" = "#f5c787", 
+                                                     "Christopher Rowe" = "#d7b472",
+                                                     "Max Martin" = "#312c2e",
+                                                     "Shellback" = "#7a8a96", 
+                                                     "Dan Wilson" = "#884752", 
+                                                     "Joel Little" = "#c687a0"))
+
+eras_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
+                                         "Fearless" = "#f5c787", 
+                                         "Speak Now" = "#9f88a4", 
+                                         "Red" = "#884752", 
+                                         "1989" = "#7a8a96", 
+                                         "Reputation" = "#312c2e", 
+                                         "Lover" = "#c687a0", 
+                                         "folklore" = "#b8b8b4", 
+                                         "evermore" = "#c29684", 
+                                         "Fearless (TV)" = "#d7b472", 
+                                         "Red (TV)" = "#64363a", 
+                                         "Midnights" = "#454d64", 
+                                         "Speak Now (TV)" = "#9f88a4", 
+                                         "1989 (TV)" = "#b7e2f4", 
+                                         "TTPD" = "#ecedee"))
+
+
+```
+
+![](eras_colors.png)
+
+#  {.unlisted .unnumbered}
+
+![](producers.png)
+
+# Top Producers Across The Eras {.tabset}
+
+## Top 10
+
+Across her career, Taylor Swift has worked with `r length(unique(producer$producer))` individual producers. Most are collaborators on \<5 songs, though a few have had a clear influence on the final sound of the songs. She herself has a production credit on 257 of `r length(unique(spotify_features$track_name))` tracks.
+
+![](producers_photos.png)
+
+```{r count top 10 writers and producers}
+
+producercount_ranking <- as.data.frame(sort(table(producer$producer), decreasing = TRUE))
+top_10_prods <- producercount_ranking %>%
+  top_n(10, Freq) %>%
+  rename(Producer = Var1) %>%
+  slice(1:10)
+
+ggplot(top_10_prods, aes(x = reorder(Producer, Freq), y = Freq)) +
+  geom_bar(stat = "identity", aes(fill = Producer)) +
+  coord_flip() +
+  labs(title = "Top 10 Producers by Number of Songs",
+       x = "",
+       y = "Songs") +
+  theme_minimal() +
+  scale_fill_manual(values = top_collaborator_color_assignment) + # Use your custom color assignment
+  geom_text(aes(label = Freq), hjust = -0.2, size = 3) +
+  theme(legend.position = "none")
+
+
+```
+
+## Producers per Era
+
+*Question: How many producers does she work with per album?*
+
+To do this, we need to analyze the count of unique producers per album and era.
+
+```{r find unique producers per era}
+# Find amount of unique producers per era
+producer_count_by_era <- song_producers %>%
+  group_by(era_abbreviated) %>%
+  summarise(producer_count = n_distinct(producer))
+
+# Filter out eras I don't want to see on the chart
+producer_count_by_era <- producer_count_by_era %>%
+  filter(!era_abbreviated %in% eras_to_exclude)
+
+# Create the ggplot bar chart  
+ggplot(producer_count_by_era, aes(x = era_abbreviated, y = producer_count, fill = era_abbreviated)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = producer_count), vjust = -0.5, size = 3) +
+  expand_limits(y = max(producer_count_by_era$producer_count) * 1.1) +  # Add some space above the bars
+  theme_minimal() +
+  labs(title = "Count of Producers per Era",
+       x = "",
+       y = "Number of Producers") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") + 
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 19)) + 
+  scale_fill_manual(values = eras_color_assignment)
+
+```
+
+This shows that **1989** and **Red (Taylor's Version)** have the most producers that worked on them.
+
+## Producers per Era
+
+However, simply looking at the number of producers for each album may give the false impression that certain albums have significantly more producers working on the songs. Since each era has a different number of songs, you can't just look at the producer count.
+
+To address this, we want to find the average number of collaborators per song. This helps normalize for very long albums (like Red TV and TTPD) that have 25 or more tracks.
+
+```{r find avg producers per era}
+
+# Count unique producers per song
+producer_count_per_song <- song_producers %>%
+  group_by(era_abbreviated, track_name) %>%
+  summarise(producer_count = n_distinct(producer), .groups = "drop")
+
+# Group by era_abbreviated and calculate the average number of producers per song
+average_producers_by_era <- producer_count_per_song %>%
+  group_by(era_abbreviated) %>%
+  summarise(average_producers_per_song = mean(producer_count))
+
+# Exclude eras
+average_producers_by_era <- average_producers_by_era %>%
+  filter(!era_abbreviated %in% eras_to_exclude)
+
+# Create the ggplot bar chart
+ggplot(average_producers_by_era, aes(x = era_abbreviated, y = average_producers_per_song, fill = era_abbreviated)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(average_producers_per_song, 2)), vjust = -0.5, size = 3) +
+  expand_limits(y = max(average_producers_by_era$average_producers_per_song) * 1.1) +  # Add some space above the bars
+  theme_minimal() +
+  labs(title = "Average Number of Producers per Song by Era",
+       x = "",
+       y = "Average Producers per Song") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 19)) + 
+  scale_fill_manual(values = eras_color_assignment)
+
+```
+
+This gives a better picture: the amount of producers working on each album is generally around 2 producers across most of the albums (normally Taylor Swift herself and one collaborator).
+
+The outliers are her **debut** self-titled album, where she does not have any production credits, and **evermore** where Aaron Dessner is listed as the sole producer on 11 of 17 songs.
+
+#  {.unlisted .unnumbered}
+
+![](acousticness.png)
+
+# Effect on Acousticness {.tabset}
+
+## Acousticness over Time
+
+I feel like there has been a shift in the acousticness of her music over time and I was interested in seeing if this was captured in Spotify's metrics.
+
+I chose to exclude the Taylor's Version rerecordings because, while they were produced more recently, the tracks themselves were written a while ago. I figured that this would not give an accurate picture of the acousticness and just wanted to stick to new releases in their original eras.
+
+```{r acousticness over time}
+acousticness_summary <- spotify_features %>%
+  filter(!era_abbreviated %in% eras_to_exclude)%>%
+  filter(!grepl("TV", era_abbreviated)) %>% 
+  group_by(era_abbreviated) %>%
+  summarize(mean_acousticness = mean(acousticness, na.rm = TRUE))
+  
+ggplot(acousticness_summary, aes(x = era_abbreviated, y = mean_acousticness, fill = era_abbreviated)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(mean_acousticness, 2)), vjust = -0.5, size = 3) +
+  expand_limits(y = max(acousticness_summary$mean_acousticness) * 1.1) +  # Add some space above the bars
+  theme_minimal() +
+  ylim(0,1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+  labs(title = "Average Acousticness per Era",
+       x = "", 
+       y = "Mean Acousticness") +
+  geom_smooth(aes(group = era_abbreviated), method = "lm", formula = 'y ~ x', linewidth = 1) +  # Add regression lines 
+scale_fill_manual(values = eras_color_assignment)
+
+```
+
+As I expected, **evermore** and **folklore** are the most acoustic albums, followed by **The Tortured Poet's Department.** The older, more country and pop albums are much less acoustic.
+
+## Acousticness & Producers
+
+Since I have the producer data, I wanted to see what the relationship between producers and acousticness looked like. As expected, Aaron Dessner (a main producer on folklore and evermore) had a much higher mean acousticness value than Jack Antonoff (who worked heavily on Midnights and Lover).
+
+```{r distribution of acousticness - producers, warning=FALSE}
+
+# Filter song_producers to include only songs by the top 10 producers
+top_producers <- top_10_prods$Producer
+filtered_song_producers <- song_producers %>%
+  filter(producer %in% top_producers)
+
+# Reorder producers by mean acousticness in descending order
+mean_acousticness_order <- filtered_song_producers %>%
+  group_by(producer) %>%
+  summarise(mean_acousticness = mean(acousticness, na.rm = TRUE)) %>%
+  arrange(desc(mean_acousticness)) %>%
+  pull(producer)
+
+filtered_song_producers <- filtered_song_producers %>%
+  mutate(producer = factor(producer, levels = mean_acousticness_order))
+
+# Create the box plot
+BOXPLOT_PRODUCER_ACOUSTICNESS <- ggplot(filtered_song_producers, aes(x = producer, y = acousticness)) +
+  geom_boxplot(outlier.shape = NA, aes(fill = producer), alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 1, aes(fill = producer, text = paste("<b>\n", track_name, "\n</b>", era_abbreviated)), color = NA) +
+  labs(title = "Distribution of Acousticness by Top 10 Producers",
+       x = "Producer",
+       y = "Acousticness") +
+  ylim(0, 1) +
+  theme_minimal() + 
+  scale_fill_manual(values = top_collaborator_color_assignment) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.position = "none") 
+
+remove_boxplot_outliers <- function(fig){ # code that i found https://github.com/plotly/plotly.R/issues/1114 to remove outliers... 
+  stopifnot("plotly" %in% class(fig))
+  fig$x$data <- lapply(
+    fig$x$data,
+    \(i){
+      if(i$type != "box") return(i)
+      i$marker = list(opacity = 0)
+      i$hoverinfo = "none"
+      i
+    }
+  )
+  fig
+}
+
+remove_boxplot_outliers(ggplotly(BOXPLOT_PRODUCER_ACOUSTICNESS))
+
+```
+
+#  {.unlisted .unnumbered}
+
+![](taylorsversion.png)
+
+# Taylor's Version vs Original Audio Features {.tabset}
+
+How different are the Taylor's Version releases from the originals? Could that be a result of different producers working on the songs?
+
+To do this, I needed to find all TV songs that aren't From the Vault, & match them with the original releases in a dataframe, and pull over the original era name, both values of each of the selected variables (acousticness, valence, danceability, and liveness), & calculate the difference values by subtracting the original values from Taylor's Version values.
+
+```{r TV vs original song features}
+
+# Create a dataframe for original songs
+original_songs <- spotify_features %>%
+  filter(!taylors_version) %>%
+  rename(original_track = track_name, 
+         original_acousticness = acousticness,
+         original_valence = valence, 
+         original_danceability = danceability, 
+         original_liveness = liveness, 
+         original_era = era_abbreviated, 
+         original_producer = producer)
+
+# Create a dataframe for Taylor's Version songs
+taylors_version_songs <- spotify_features %>%
+  filter(taylors_version) %>%
+  rename(taylors_track = track_name, 
+         tv_acousticness = acousticness,
+         tv_valence = valence,
+         tv_danceability = danceability, 
+         tv_liveness = liveness,
+         tv_producer = producer)
+
+# Function to strip " (Taylor's Version)" from track names
+strip_taylors_version <- function(track_name) {
+  sub(" \\(Taylor's Version\\)$", "", track_name)
+}
+
+# Apply the function to create a matching column in Taylor's Version songs
+taylors_version_songs <- taylors_version_songs %>%
+  mutate(original_track = strip_taylors_version(taylors_track))
+
+# Join the two dataframes on the original track name
+tv_vs_original_spotify_features <- original_songs %>%
+  inner_join(taylors_version_songs, by = "original_track") %>%
+  select(original_track, original_acousticness, tv_acousticness, original_valence, tv_valence, original_danceability, tv_danceability, original_liveness, tv_liveness, original_era, original_producer, tv_producer) 
+
+# Calculate the difference between tv and original, remove Collabs
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  filter(!original_era %in% eras_to_exclude) %>%
+  mutate(acousticness_difference = (tv_acousticness - original_acousticness)) %>%
+  mutate(valence_difference = (tv_valence - original_valence)) %>%
+  mutate(danceability_difference = (tv_danceability - original_danceability)) %>%
+  mutate(liveness_difference = (tv_liveness - original_liveness)) %>%
+  mutate(original_track = reorder(original_track, acousticness_difference))
+
+```
+
+## Audio Features {.tabset}
+
+After matching up the Taylor's Version and original tracks, we can look at the difference in the audio features between the versions, as reported by Spotify. The four I am choosing to look at are **acousticness, valence, danceability,** and **liveness.**
+
+### Acousticness
+
+Spotify's `acousticness` measure indicates the extent to which a track is acoustic. It is a value ranging from 0.0 to 1.0, where higher values represent a greater likelihood that the track is acoustic. Acoustic tracks are typically those that are made with non-electronic instruments and have a natural, organic sound.
+
+For example:
+
+-   A track with an `acousticness` of 0.9 is likely to be primarily composed of acoustic instruments, like acoustic guitar or piano, with minimal electronic processing.
+
+-   A track with an `acousticness` of 0.1 is likely to have more electronic or synthesized elements.
+
+Here I create a histogram of `acousticness_difference` to show change between the original release and Taylor's Version between albums. Values on the right of the line means Taylor's Version of a song is *more acoustic*, while values on the left mean a song is *less acoustic* than it's original counterpart.
+
+```{r distribution of acousticness difference, fig.height=2.5, message=FALSE, warning=FALSE}
+
+ggplot(tv_vs_original_spotify_features, aes(x = acousticness_difference)) +
+  geom_histogram(fill = "#884752", color = "white", bins = 25) +
+  labs(x = "", y = "") +
+  geom_vline(xintercept = 0, color = "black", linewidth = .5) +  # Add vertical line at x = 0
+  facet_wrap(~ original_era) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
+    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
+)
+
+```
+
+This indicates that the majority of Taylor's Version releases are less acoustic than the originally released versions of those songs.
+
+I created a dumbbell plot to visualize the extent that these values changed. When the dot is on the right, it indicates that TV is **more acoustic**. Conversely, when the dot is on the left, it indicates that TV is **less acoustic.**
+
+#### **Comparison of Acousticness between Original and Taylor's Version**
+
+##### *Taylor's Version = [red]{style="color:#884752;"}, Sorted by `acousticness difference` value*
+
+```{r acousticness dumbell plot - TV vs original, fig.height=7}
+
+# Function to abbreviate long song titles
+tv_vs_original_spotify_features$original_track <- as.character(tv_vs_original_spotify_features$original_track) # convert to character
+
+abbreviate_title <- function(title, max_length = 17) {
+  if (nchar(title) > max_length) {
+    return(paste(substr(title, 0, max_length), "..."))
+  } else {
+    return(title)
+  }
+}
+
+# save original full length song title in case i need it longer
+tv_vs_original_spotify_features$original_track_longer <-tv_vs_original_spotify_features$original_track
+
+# Abbreviate long song titles in original_track
+tv_vs_original_spotify_features$original_track <- sapply(tv_vs_original_spotify_features$original_track, abbreviate_title)
+
+# reorder by acousticness difference
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  mutate(original_track = reorder(original_track, acousticness_difference))
+
+ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
+  geom_segment(aes(x = round(original_acousticness,2), xend = round(tv_acousticness,2), y = original_track, yend = original_track),
+               color = "grey", linewidth = .5) +
+  geom_point(aes(x = round(tv_acousticness,2)), color = "#884752", size = 2, show.legend = TRUE) +
+  labs(title = "", 
+       x = "", y = "") +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  geom_text(aes(x = ifelse(original_acousticness > tv_acousticness, original_acousticness, tv_acousticness) + 0.03,
+                label = round(acousticness_difference, 2)), 
+                hjust = 0, vjust = 0.5, color = "black", size = 2) +  # Add text labels for acousticness_difference
+  facet_wrap(~ original_era, scales = "free_y") 
+
+```
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/6cf6rLb8qcklvJv90W6HCW?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/0DMVrlMUn01M0IcpDbwgu7?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+### Valence
+
+Spotify's `valence` measure indicates the musical positiveness conveyed by a track. It is a metric used to quantify the emotional quality of a song, ranging from 0.0 to 1.0. [Higher valence values signify more positive, happy, and cheerful tracks, while lower valence values indicate more negative, sad, or angry tracks.]{.underline}
+
+For example:
+
+-   A track with a `valence` of 0.9 might be an upbeat, joyous song.
+
+-   A track with a `valence` of 0.1 might be a somber, melancholic song.
+
+```{r distribution of valence difference, fig.height=2.5, warning=FALSE}
+
+ggplot(tv_vs_original_spotify_features, aes(x = valence_difference)) +
+  geom_histogram(fill = "#f5c787", color = "white", bins = 25) +
+  labs(x = "", y = "") +
+  geom_vline(xintercept = 0, color = "black", linewidth = .5) +  # Add vertical line at x = 0
+  facet_wrap(~ original_era) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
+    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
+)
+
+```
+
+This histogram shows the `valence_difference` between the original releases and TV releases. It seems to show that there's more of a spread of change in valence, but generally more songs that have less valence in TV than the original.
+
+I also created the dumbell plot again for valence: When the dot is on the right, it indicates that TV has **more valence** than the original release. Conversely, when the dot is on the left, it indicates that TV has **less valence**.
+
+#### **Comparison of Valence between Original and Taylor's Version**
+
+##### *Taylor's Version = [yellow]{style="color:#f5c787;"}, Sorted by `valence difference` value*
+
+```{r valence dumbell plot - TV vs original, fig.height=7}
+
+# reorder by valence difference now
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  mutate(original_track = reorder(original_track, valence_difference))
+
+ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
+  geom_segment(aes(x = original_valence, xend = tv_valence, y = original_track, yend = original_track),
+               color = "gray", linewidth = .5) +
+  geom_point(aes(x = tv_valence), color = "#f5c787", size = 2, show.legend = TRUE) +
+  labs(title = "", 
+       x = "", y = "") +
+  theme_minimal() +
+  facet_wrap(~ original_era, scales = "free_y") + 
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  geom_text(aes(x = ifelse(original_valence > tv_valence, original_valence, tv_valence) + 0.03,
+                label = round(valence_difference, 2)), 
+            hjust = 0, vjust = 0.5, color = "black", size = 2)  # Add text labels for acousticness_difference
+
+```
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/08gavXombT6KR0af88i9tA?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/2m3ObD945KvpE5y9A1eUWm?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+### Danceability
+
+Spotify's `danceability` measure indicates how suitable a track is for dancing. It is calculated based on a combination of musical elements such as tempo, rhythm stability, beat strength, and overall regularity. The danceability score ranges from 0.0 to 1.0, with higher values signifying that a track is more danceable.
+
+For example:
+
+-   A track with a `danceability` score of 0.9 is highly rhythmic, stable, and likely to be very suitable for dancing.
+
+-   A track with a `danceability` score of 0.2 might have a more irregular rhythm and less pronounced beat, making it less suitable for dancing.
+
+```{r distribution of danceability difference, fig.height=2.5, warning=FALSE}
+
+ggplot(tv_vs_original_spotify_features, aes(x = danceability_difference)) +
+  geom_histogram(fill = "#9f88a4", color = "white", bins = 25) +
+  labs(x = "", y = "") +
+  geom_vline(xintercept = 0, color = "black", linewidth = .5) +  # Add vertical line at x = 0
+  facet_wrap(~ original_era) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
+    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
+)
+```
+
+This histogram shows the `danceability_difference` between the original releases and TV releases. It seems to show that generally there is a negative change in danceability from the original to TV release.
+
+I recreated the dumbell plot for danceability: When the dot is on the right, it indicates that TV is **more danceable** than the original release. Conversely, when the dot is on the left, it indicates that TV is **less danceable.**
+
+#### **Comparison of Danceability between Original and Taylor's Version**
+
+##### *Taylor's Version = [purple]{style="color:#9f88a4;"}, Sorted by `danceability difference` value*
+
+```{r danceability dumbell plot - TV vs original, fig.height=7}
+
+# reorder by danceability difference
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  mutate(original_track = reorder(original_track, danceability_difference))
+
+ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
+  geom_segment(aes(x = original_danceability, xend = tv_danceability, y = original_track, yend = original_track),
+               color = "gray", linewidth = .5) +
+  geom_point(aes(x = tv_danceability), color = "#9f88a4", size = 2, show.legend = TRUE) +
+  labs(title = "", 
+       x = "", y = "") +
+  theme_minimal() +
+  facet_wrap(~ original_era, scales = "free_y") + 
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  geom_text(aes(x = ifelse(original_danceability > tv_danceability, original_danceability, tv_danceability) + 0.03,
+                label = round(danceability_difference, 2)), 
+            hjust = 0, vjust = 0.5, color = "black", size = 2)  # Add text labels for acousticness_difference
+
+```
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/4h0EXpatqJImv4VRgvX6po?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/59KOoHFcw5XfICnO57holu?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+### Liveness
+
+Spotify's `liveness` measure indicates the presence of a live performance in a track. It is a value ranging from 0.0 to 1.0, where **higher values represent a higher probability that the track was recorded live**. Tracks with high liveness values typically contain audience sounds, reverberation, and other acoustic cues that suggest a live environment.
+
+For example:
+
+-   A track with a `liveness` score of 0.8 might include noticeable crowd noise, clapping, or other live elements, indicating that it was likely recorded during a live concert or performance.
+
+-   A track with a `liveness` score of 0.2 is likely to have been recorded in a studio setting with minimal or no live elements.
+
+```{r distribution of liveness difference, fig.height=2.5, warning=FALSE}
+
+ggplot(tv_vs_original_spotify_features, aes(x = liveness_difference)) +
+  geom_histogram(fill = "#7a8a96", color = "white", bins = 25) +
+  labs(x = "", y = "") +
+  geom_vline(xintercept = 0, color = "black", linewidth = .5) +  # Add vertical line at x = 0
+  facet_wrap(~ original_era) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
+    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
+)
+```
+
+#### **Comparison of Liveness between Original and Taylor's Version**
+
+##### *Taylor's Version = [blue]{style="color:#7a8a96;"}, Sorted by `liveness difference` value*
+
+```{r liveness dumbell plot - TV vs original, fig.height=7}
+
+# reorder by liveness difference now
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  mutate(original_track = reorder(original_track, liveness_difference))
+
+ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
+  geom_segment(aes(x = original_liveness, xend = tv_liveness, y = original_track, yend = original_track),
+               color = "gray", linewidth = .5) +
+  geom_point(aes(x = tv_liveness), color = "#7a8a96", size = 2, show.legend = TRUE) +
+  labs(title = "", 
+       x = "", y = "") +
+  theme_minimal() +
+  facet_wrap(~ original_era, scales = "free_y") + 
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  geom_text(aes(x = ifelse(original_liveness > tv_liveness, original_liveness, tv_liveness) + 0.03,
+                label = round(liveness_difference, 2)), 
+            hjust = 0, vjust = 0.5, color = "black", size = 2)
+
+```
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/3DrjZArsPsoqbLzUZZV1Id?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/79uDOz0zuuWS7HWxzMmTa2?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+## TV vs Original Difference
+
+I was curious if these differences are actually statistically significant. **Are Taylor's Version songs statistically more likely to be less acoustic or less danceable?**
+
+To check this, I first need to pivot the data into a long data format. From there, I can perform t-tests on each of the variables to see if they are actually different.
+
+```{r impact of tv on factors}
+
+# pivot tv vs original data into long format
+tv_vs_original_longer <- tv_vs_original_spotify_features %>%
+    select(original_track, original_acousticness, original_liveness, original_valence, original_danceability,
+         tv_acousticness, tv_liveness, tv_valence, tv_danceability)
+
+tv_vs_original_longer <- tv_vs_original_longer %>%
+  pivot_longer(
+    cols = -original_track, 
+    names_to = c("tv_or_original", "feature"), 
+    names_sep = "_", 
+    values_to = "value"
+  )
+
+results1 <- data.frame(feature = character(), p_value = numeric())
+
+# Function to perform t-test for a specific difference_type and save results
+perform_t_test <- function(feature, tv_vs_original_longer) {
+  tv <- tv_vs_original_longer %>% filter(tv_or_original == "tv", feature == !!feature)
+  original <- tv_vs_original_longer %>% filter(tv_or_original == "original", feature == !!feature)
+  
+  # Perform t-test
+  t_test_result <- t.test(tv$value, original$value, var.equal = FALSE)
+  
+  # Create a data frame with feature and p-value
+  result <- data.frame(feature = feature, p_value = t_test_result$p.value)
+  
+  return(result)
+}
+
+# Perform t-tests for each feature and save results
+features <- unique(tv_vs_original_longer$feature)
+
+for (feature in features) {
+  test_result <- perform_t_test(feature, tv_vs_original_longer)
+  results1 <- bind_rows(results1, test_result)
+}
+
+```
+
+| Grade        | p-value result              | interpretation                           |
+|:------------------|:--------------------|:-------------------------------|
+| Acousticness | `r round(results1[1,2], 5)` | p \> 0.05, not statistically significant |
+| Danceability | `r round(results1[3,2], 5)` | p \> 0.05, not statistically significant |
+| Liveness     | `r round(results1[4,2], 5)` | p \> 0.05, not statistically significant |
+| Valence      | `r round(results1[2,2], 5)` | p \> 0.05, not statistically significant |
+
+Ultimately, the t-tests showed that there wasn't a significant difference between Taylor's Version and the original versions of the songs for any of the measures.
+
+```{r plotting differences in tv vs original, warning=FALSE}
+# Group and summarize data for error bars
+summary_data_tv_vs_original <- tv_vs_original_longer %>%
+  group_by(tv_or_original, feature) %>%
+  summarise(
+    mean_change = mean(value),
+    error = sd(value) / sqrt(n()),
+    .groups = 'drop'
+  )
+
+ggplot(tv_vs_original_longer, aes(x = tv_or_original, y = value, fill = tv_or_original)) +
+  geom_jitter(width = 0.1, alpha = 0.6, aes(text = original_track, color = tv_or_original), show.legend = FALSE) +  
+  geom_errorbar(data = summary_data_tv_vs_original, 
+                width = 0.8, 
+                color = "black", 
+                position = position_dodge(width = 0.25), 
+                aes(x = tv_or_original, y = mean_change, ymin = mean_change - error, ymax = mean_change + error, group = feature)) +
+  geom_point(data = summary_data_tv_vs_original, aes(x = tv_or_original, y = mean_change), size = 2, color = "black", show.legend = FALSE) +
+  geom_text(data = summary_data_tv_vs_original, hjust = -.75, color = "#c687a0", size = 2.5,
+            aes(x = tv_or_original, 
+                y = mean_change, 
+                label = round(mean_change, 2))) +
+  facet_wrap(~ feature, scales = "free_y", nrow = 1) +
+  labs(title = "TV or Original", x = "TV or Original", y = "Value") +
+  scale_fill_manual(values = c("tv" = "#3F3824", "original" = "#949494")) +  # Customize fill colors
+  scale_color_manual(values = c("tv" = "#3F3824", "original" = "#949494")) +  # Customize jitter color
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+```
+
+## Returning Producers
+
+How many producers who worked on the original recordings returned to help produce on Taylor's Version?
+
+```{r producers on TV vs original}
+
+tv_vs_original_producers <- tv_vs_original_spotify_features %>%
+  select(1, original_producer, tv_producer, original_era)
+
+rmarkdown::paged_table(tv_vs_original_producers)
+
+```
+
+**Nathan Chapman** helped produce all of Speak Now and Fearless and did not return for the rerecordings -- **Christopher Rowe** was the producer listed (besides Taylor Swift) for those tracks.
+
+**Max Martin**, a co-producer of many songs off of 1989, did not return to help with the rerecordings, though **Shellback** (a regular collaborator) did help produce all the 1989 TV tracks he was originally on.
+
+Other returning producers include: **Jacknife Lee**, **Jeff Bhasker**, **Ryan Tedder**, **Noel Zancanella**, **Butch Walker**, **Imogen Heap**, and **Jack Antonoff**.
+
+## Producer Impact
+
+Okay, even if the differences aren't statistically significant overall, I still feel like there is a difference between Taylor's Version songs and the original ones. To investigate this, we should look at whether having the same or different producers makes a difference in the song's characteristics.
+
+First, we need to identify which songs have entirely new producers and which have the same producers. Once we have this information, we can analyze which variables might be significantly affected by this change.
+
+After identifying the songs with the same producers and those with different ones, we can perform a t-test to determine if there is a significant difference between Taylor's Version songs with the same and different producers.
+
+```{r producer impact}
+
+# Function to compare producers
+compare_producers <- function(original, tv) {
+  # Split producers by comma and trim whitespace
+  original_producers <- str_split(original, ",\\s*")[[1]]
+  tv_producers <- str_split(tv, ",\\s*")[[1]]
+  
+  # Remove "Taylor Swift" from both lists
+  original_producers <- original_producers[!original_producers %in% "Taylor Swift"]
+  tv_producers <- tv_producers[!tv_producers %in% "Taylor Swift"]
+  
+  # Check if all producers are the same
+  if (length(original_producers) == length(tv_producers) && all(original_producers %in% tv_producers)) {
+    result <- "SAME"
+  } else if (any(original_producers %in% tv_producers)) {
+    result <- "PARTIAL"
+  } else {
+    result <- "DIFFERENT"
+  }
+  
+  return(result)
+}
+
+# Apply function row-wise and create new column
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  mutate(same_producers = mapply(compare_producers, original_producer, tv_producer))
+
+# Recode same_producers to combine PARTIAL and DIFFERENT into one category
+tv_vs_original_spotify_features$same_producers_test <- ifelse(tv_vs_original_spotify_features$same_producers %in% c("SAME", "PARTIAL"), "Same-ish", "Different")
+
+# Reshape the data for t-tests
+differences_long <- tv_vs_original_spotify_features %>%
+  select(original_track, same_producers_test, acousticness_difference, valence_difference, danceability_difference, liveness_difference) %>%
+  pivot_longer(cols = -c(original_track, same_producers_test), names_to = "difference_type", values_to = "difference_value")
+
+differences_long$same_producers_test <- factor(differences_long$same_producers_test, levels = c("Same-ish", "Different"))
+
+# Initialize the results data frame
+results2 <- data.frame(difference_type = character(), p_value = numeric())
+
+# Function to perform t-test for a specific difference_type and save results
+perform_t_test <- function(difference_type) {
+  same_producers_data <- differences_long %>% filter(same_producers_test == "Same-ish", difference_type == !!difference_type)
+  different_producers_data <- differences_long %>% filter(same_producers_test == "Different", difference_type == !!difference_type)
+  
+  t_test_result <- t.test(same_producers_data$difference_value, different_producers_data$difference_value, var.equal = FALSE)
+  
+  # Create a data frame with difference_type and p-value
+  result <- data.frame(difference_type = difference_type, p_value = t_test_result$p.value)
+  
+  return(result)
+}
+
+# Perform t-tests for difference types and save results
+difference_types <- unique(differences_long$difference_type)
+
+for (dt in difference_types) {
+  test_result <- perform_t_test(dt)
+  results2 <- bind_rows(results2, test_result)
+}
+
+```
+
+| Grade                   | p-value result              | interpretation                                     |
+|:------------------|:--------------------|:-------------------------------|
+| Acousticness Difference | `r round(results2[1,2], 5)` | p \< 0.05, [statistically significant]{.underline} |
+| Danceability Difference | `r round(results2[3,2], 5)` | p \> 0.05, not statistically significant           |
+| Liveness Difference     | `r round(results2[4,2], 5)` | p \> 0.05, not statistically significant           |
+| Valence Difference      | `r round(results2[2,2], 5)` | p \> 0.05, not statistically significant           |
+
+The result of the t-test seems to show that having the same-ish producers does have a statistically significant impact on the change in `acousticness` of the song.
+
+```{r differences by producer type}
+
+# Group and summarize data for error bars
+summary_data_byprodchange <- differences_long %>%
+  group_by(difference_type, same_producers_test) %>%
+  summarise(
+    mean_change = mean(difference_value),
+    se_change = sd(difference_value) / sqrt(n()),
+    .groups = 'drop'
+  )
+
+ggplot(differences_long, aes(x = same_producers_test, y = difference_value, fill = same_producers_test)) +
+  geom_jitter(width = 0.1, alpha = 0.6, aes(color = same_producers_test), show.legend = FALSE) +  
+  geom_errorbar(data = summary_data_byprodchange, aes(x = same_producers_test, 
+                                                      y = mean_change, 
+                                                      ymin = mean_change - se_change, 
+                                                      ymax = mean_change + se_change, 
+                                                      group = difference_type), 
+                width = 0.8, color = "black", position = position_dodge(width = 0.75)) +
+  geom_point(data = summary_data_byprodchange, aes(x = same_producers_test, y = mean_change), size = 2, color = "black", show.legend = FALSE) +
+  geom_text(data = summary_data_byprodchange, hjust = -.5, color = "#c687a0", size = 2.5,
+            aes(x = same_producers_test, 
+                y = mean_change, 
+                label = round(mean_change, 2))) +
+  facet_wrap(~ difference_type, scales = "free_y", nrow = 1) +
+  labs(title = "Differences by Producer Type",
+       x = "Producer Type",
+       y = "Difference Value",
+       fill = "Producer Type") +
+  scale_fill_manual(values = c("Same-ish" = "#3F3824", "Different" = "#949494")) +  # Customize fill colors
+  scale_color_manual(values = c("Same-ish" = "#3F3824", "Different" = "#949494")) +  # Customize jitter color
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+
+```
