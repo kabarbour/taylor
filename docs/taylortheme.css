@@ -1,0 +1,90 @@
+body {
+  color: #000003;
+  background-color: white;
+}
+
+/* HEADERS TEXT FORMATTING */
+h1 {
+  font-family: "Pistilli", "Big Caslon", "Book Antiqua", "Palatino Linotype", Georgia, serif;
+  font-size: 26px;
+  font-style: normal;
+  font-variant: normal;
+  letter-spacing: .2rem;
+  text-transform: uppercase;
+}
+
+h3 {
+  font-family: "Pistilli", "Big Caslon", "Book Antiqua", "Palatino Linotype", Georgia, serif;
+  font-size: 16px;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+
+blockquote {
+  font-family: "Pistilli", "Big Caslon", "Book Antiqua", "Palatino Linotype", Georgia, serif;
+  font-size: 21px;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: 400;
+  line-height: 30px;
+}
+
+/* CODE TEXT FORMATTING */
+code {
+  font-size: 90%;
+}
+
+pre {
+  font-size: 90%;
+}
+
+pre code {
+  font-size: 90%;
+}
+
+/* TABLE OF CONTENTS FORMATTING */
+#TOC {
+  left: 30px;
+  width: 300px;
+  max-width: 90%;
+  overflow: auto;
+  color: #434961;
+  border-radius: 3px;
+}
+
+.list-group-item.active,
+.list-group-item.active:focus,
+.list-group-item.active:hover {
+  z-index: 2;
+  color: white;
+  background-color: #434961;
+}
+
+/* TABLE FORMATTING */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 90%;
+}
+
+table th {
+  font-size: 16px;
+  font-weight: bolder;
+  text-transform: capitalize;
+}
+
+/* TABSET TEXT FORMATTING */
+.nav-tabs > li > a {
+  color: #434961
+}
+
+.nav-tabs > li.active > a {
+  color: #434961
+}
+
+.nav-tabs > li > a:hover {
+  color: #434961
+}
