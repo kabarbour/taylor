@@ -675,71 +675,6 @@ ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
 </div>
 </div>
 </div>
-<div id="valence" class="section level3">
-<h3>Valence</h3>
-<p>Spotify’s <code>valence</code> measure indicates the musical
-positiveness conveyed by a track. It is a metric used to quantify the
-emotional quality of a song, ranging from 0.0 to 1.0. <u>Higher valence
-values signify more positive, happy, and cheerful tracks, while lower
-valence values indicate more negative, sad, or angry tracks.</u></p>
-<p>For example:</p>
-<ul>
-<li><p>A track with a <code>valence</code> of 0.9 might be an upbeat,
-joyous song.</p></li>
-<li><p>A track with a <code>valence</code> of 0.1 might be a somber,
-melancholic song.</p></li>
-</ul>
-<pre class="r"><code>ggplot(tv_vs_original_spotify_features, aes(x = valence_difference)) +
-  geom_histogram(fill = &quot;#f5c787&quot;, color = &quot;white&quot;, bins = 25) +
-  labs(x = &quot;&quot;, y = &quot;&quot;) +
-  geom_vline(xintercept = 0, color = &quot;black&quot;, linewidth = .5) +  # Add vertical line at x = 0
-  facet_wrap(~ original_era) + 
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
-    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
-)</code></pre>
-<p><img src="index_files/figure-html/distribution%20of%20valence%20difference-1.png" width="840" /></p>
-<p>This histogram shows the <code>valence_difference</code> between the
-original releases and TV releases. It seems to show that there’s more of
-a spread of change in valence, but generally more songs that have less
-valence in TV than the original.</p>
-<p>I also created the dumbell plot again for valence: When the dot is on
-the right, it indicates that TV has <strong>more valence</strong> than
-the original release. Conversely, when the dot is on the left, it
-indicates that TV has <strong>less valence</strong>.</p>
-<div id="comparison-of-valence-between-original-and-taylors-version"
-class="section level4">
-<h4><strong>Comparison of Valence between Original and Taylor’s
-Version</strong></h4>
-<div id="taylors-version-yellow-sorted-by-valence-difference-value"
-class="section level5">
-<h5><em>Taylor’s Version = <span style="color:#f5c787;">yellow</span>,
-Sorted by <code>valence difference</code> value</em></h5>
-<pre class="r"><code># reorder by valence difference now
-tv_vs_original_spotify_features &lt;- tv_vs_original_spotify_features %&gt;%
-  mutate(original_track = reorder(original_track, valence_difference))
-
-ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
-  geom_segment(aes(x = original_valence, xend = tv_valence, y = original_track, yend = original_track),
-               color = &quot;gray&quot;, linewidth = .5) +
-  geom_point(aes(x = tv_valence), color = &quot;#f5c787&quot;, size = 2, show.legend = TRUE) +
-  labs(title = &quot;&quot;, 
-       x = &quot;&quot;, y = &quot;&quot;) +
-  theme_minimal() +
-  facet_wrap(~ original_era, scales = &quot;free_y&quot;) + 
-  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
-  geom_text(aes(x = ifelse(original_valence &gt; tv_valence, original_valence, tv_valence) + 0.03,
-                label = round(valence_difference, 2)), 
-            hjust = 0, vjust = 0.5, color = &quot;black&quot;, size = 2)  # Add text labels for acousticness_difference</code></pre>
-<p><img src="index_files/figure-html/valence%20dumbell%20plot%20-%20TV%20vs%20original-1.png" width="840" /></p>
-<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/08gavXombT6KR0af88i9tA?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
-</iframe>
-<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/2m3ObD945KvpE5y9A1eUWm?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
-</iframe>
-</div>
-</div>
-</div>
 <div id="danceability" class="section level3">
 <h3>Danceability</h3>
 <p>Spotify’s <code>danceability</code> measure indicates how suitable a
@@ -868,6 +803,71 @@ ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
 </div>
 </div>
 </div>
+<div id="valence" class="section level3">
+<h3>Valence</h3>
+<p>Spotify’s <code>valence</code> measure indicates the musical
+positiveness conveyed by a track. It is a metric used to quantify the
+emotional quality of a song, ranging from 0.0 to 1.0. <u>Higher valence
+values signify more positive, happy, and cheerful tracks, while lower
+valence values indicate more negative, sad, or angry tracks.</u></p>
+<p>For example:</p>
+<ul>
+<li><p>A track with a <code>valence</code> of 0.9 might be an upbeat,
+joyous song.</p></li>
+<li><p>A track with a <code>valence</code> of 0.1 might be a somber,
+melancholic song.</p></li>
+</ul>
+<pre class="r"><code>ggplot(tv_vs_original_spotify_features, aes(x = valence_difference)) +
+  geom_histogram(fill = &quot;#f5c787&quot;, color = &quot;white&quot;, bins = 25) +
+  labs(x = &quot;&quot;, y = &quot;&quot;) +
+  geom_vline(xintercept = 0, color = &quot;black&quot;, linewidth = .5) +  # Add vertical line at x = 0
+  facet_wrap(~ original_era) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
+    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
+)</code></pre>
+<p><img src="index_files/figure-html/distribution%20of%20valence%20difference-1.png" width="840" /></p>
+<p>This histogram shows the <code>valence_difference</code> between the
+original releases and TV releases. It seems to show that there’s more of
+a spread of change in valence, but generally more songs that have less
+valence in TV than the original.</p>
+<p>I also created the dumbell plot again for valence: When the dot is on
+the right, it indicates that TV has <strong>more valence</strong> than
+the original release. Conversely, when the dot is on the left, it
+indicates that TV has <strong>less valence</strong>.</p>
+<div id="comparison-of-valence-between-original-and-taylors-version"
+class="section level4">
+<h4><strong>Comparison of Valence between Original and Taylor’s
+Version</strong></h4>
+<div id="taylors-version-yellow-sorted-by-valence-difference-value"
+class="section level5">
+<h5><em>Taylor’s Version = <span style="color:#f5c787;">yellow</span>,
+Sorted by <code>valence difference</code> value</em></h5>
+<pre class="r"><code># reorder by valence difference now
+tv_vs_original_spotify_features &lt;- tv_vs_original_spotify_features %&gt;%
+  mutate(original_track = reorder(original_track, valence_difference))
+
+ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
+  geom_segment(aes(x = original_valence, xend = tv_valence, y = original_track, yend = original_track),
+               color = &quot;gray&quot;, linewidth = .5) +
+  geom_point(aes(x = tv_valence), color = &quot;#f5c787&quot;, size = 2, show.legend = TRUE) +
+  labs(title = &quot;&quot;, 
+       x = &quot;&quot;, y = &quot;&quot;) +
+  theme_minimal() +
+  facet_wrap(~ original_era, scales = &quot;free_y&quot;) + 
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  geom_text(aes(x = ifelse(original_valence &gt; tv_valence, original_valence, tv_valence) + 0.03,
+                label = round(valence_difference, 2)), 
+            hjust = 0, vjust = 0.5, color = &quot;black&quot;, size = 2)  # Add text labels for acousticness_difference</code></pre>
+<p><img src="index_files/figure-html/valence%20dumbell%20plot%20-%20TV%20vs%20original-1.png" width="840" /></p>
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/08gavXombT6KR0af88i9tA?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+</iframe>
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/2m3ObD945KvpE5y9A1eUWm?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+</iframe>
+</div>
+</div>
+</div>
 </div>
 <div id="audio-feature-difference-significance" class="section level2">
 <h2>Audio Feature Difference Significance</h2>
@@ -921,29 +921,33 @@ for (feature in features) {
 </colgroup>
 <thead>
 <tr class="header">
-<th align="left">Grade</th>
+<th align="left">Feature</th>
 <th align="left">p-value result</th>
-<th align="left">interpretation</th>
+<th align="left">Interpretation</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Acousticness</td>
+<td align="left"><span
+style="color:#884752;"><strong>Acousticness</strong></span></td>
 <td align="left">0.1138</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>
 <tr class="even">
-<td align="left">Danceability</td>
+<td align="left"><span
+style="color:#9f88a4;"><strong>Danceability</strong></span></td>
 <td align="left">0.95178</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>
 <tr class="odd">
-<td align="left">Liveness</td>
+<td align="left"><span
+style="color:#7a8a96;"><strong>Liveness</strong></span></td>
 <td align="left">0.09387</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>
 <tr class="even">
-<td align="left">Valence</td>
+<td align="left"><span
+style="color:#f5c787;"><strong>Valence</strong></span></td>
 <td align="left">0.80917</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>
@@ -1097,29 +1101,37 @@ for (dt in difference_types) {
 </colgroup>
 <thead>
 <tr class="header">
-<th align="left">Grade</th>
+<th align="left">Feature</th>
 <th align="left">p-value result</th>
 <th align="left">interpretation</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Acousticness Difference</td>
+<td align="left"><span
+style="color:#884752;"><strong>Acousticness</strong></span>
+<strong>Difference</strong></td>
 <td align="left">0.03295</td>
 <td align="left">p &lt; 0.05, <u>statistically significant</u></td>
 </tr>
 <tr class="even">
-<td align="left">Danceability Difference</td>
+<td align="left"><span
+style="color:#9f88a4;"><strong>Danceability</strong></span>
+<strong>Difference</strong></td>
 <td align="left">0.6897</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>
 <tr class="odd">
-<td align="left">Liveness Difference</td>
+<td align="left"><span
+style="color:#7a8a96;"><strong>Liveness</strong></span>
+<strong>Difference</strong></td>
 <td align="left">0.25922</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>
 <tr class="even">
-<td align="left">Valence Difference</td>
+<td align="left"><span
+style="color:#f5c787;"><strong>Valence</strong></span>
+<strong>Difference</strong></td>
 <td align="left">0.25834</td>
 <td align="left">p &gt; 0.05, not statistically significant</td>
 </tr>

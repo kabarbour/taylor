@@ -146,7 +146,7 @@ rmarkdown::paged_table(song_producers[, 1:10])
 
 ## Color Palette Setup
 
-I wanted to create one consistent color palette for use across all of the charts & specify colors for the eras and producers. 
+I wanted to create one consistent color palette for use across all of the charts & specify colors for the eras and producers.
 
 I used colors from the eras tour posters to create a color scheme for the eras, and assigned hex codes to the producers based off of the album they had the most producer credits. In the case of Max Martin and Shellback who had the same amount of credits for 1989 and reputation, I chose to make Max Martin reputation colors and Shellback 1989 colors since Shellback helped with the 1989 TV rerecordings.
 
@@ -182,7 +182,6 @@ top_collaborator_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
                                                      "Joel Little" = "#c687a0"))
 
 ```
-
 
 #  {.unlisted .unnumbered}
 
@@ -435,68 +434,6 @@ ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
 
 </iframe>
 
-### Valence
-
-Spotify's `valence` measure indicates the musical positiveness conveyed by a track. It is a metric used to quantify the emotional quality of a song, ranging from 0.0 to 1.0. [Higher valence values signify more positive, happy, and cheerful tracks, while lower valence values indicate more negative, sad, or angry tracks.]{.underline}
-
-For example:
-
--   A track with a `valence` of 0.9 might be an upbeat, joyous song.
-
--   A track with a `valence` of 0.1 might be a somber, melancholic song.
-
-```{r distribution of valence difference, fig.height=2.5, warning=FALSE}
-
-ggplot(tv_vs_original_spotify_features, aes(x = valence_difference)) +
-  geom_histogram(fill = "#f5c787", color = "white", bins = 25) +
-  labs(x = "", y = "") +
-  geom_vline(xintercept = 0, color = "black", linewidth = .5) +  # Add vertical line at x = 0
-  facet_wrap(~ original_era) + 
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
-    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
-)
-
-```
-
-This histogram shows the `valence_difference` between the original releases and TV releases. It seems to show that there's more of a spread of change in valence, but generally more songs that have less valence in TV than the original.
-
-I also created the dumbell plot again for valence: When the dot is on the right, it indicates that TV has **more valence** than the original release. Conversely, when the dot is on the left, it indicates that TV has **less valence**.
-
-#### **Comparison of Valence between Original and Taylor's Version**
-
-##### *Taylor's Version = [yellow]{style="color:#f5c787;"}, Sorted by `valence difference` value*
-
-```{r valence dumbell plot - TV vs original, fig.height=7}
-
-# reorder by valence difference now
-tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
-  mutate(original_track = reorder(original_track, valence_difference))
-
-ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
-  geom_segment(aes(x = original_valence, xend = tv_valence, y = original_track, yend = original_track),
-               color = "gray", linewidth = .5) +
-  geom_point(aes(x = tv_valence), color = "#f5c787", size = 2, show.legend = TRUE) +
-  labs(title = "", 
-       x = "", y = "") +
-  theme_minimal() +
-  facet_wrap(~ original_era, scales = "free_y") + 
-  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
-  geom_text(aes(x = ifelse(original_valence > tv_valence, original_valence, tv_valence) + 0.03,
-                label = round(valence_difference, 2)), 
-            hjust = 0, vjust = 0.5, color = "black", size = 2)  # Add text labels for acousticness_difference
-
-```
-
-<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/08gavXombT6KR0af88i9tA?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
-
-</iframe>
-
-<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/2m3ObD945KvpE5y9A1eUWm?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
-
-</iframe>
-
 ### Danceability
 
 Spotify's `danceability` measure indicates how suitable a track is for dancing. It is calculated based on a combination of musical elements such as tempo, rhythm stability, beat strength, and overall regularity. The danceability score ranges from 0.0 to 1.0, with higher values signifying that a track is more danceable.
@@ -615,6 +552,68 @@ ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
 
 </iframe>
 
+### Valence
+
+Spotify's `valence` measure indicates the musical positiveness conveyed by a track. It is a metric used to quantify the emotional quality of a song, ranging from 0.0 to 1.0. [Higher valence values signify more positive, happy, and cheerful tracks, while lower valence values indicate more negative, sad, or angry tracks.]{.underline}
+
+For example:
+
+-   A track with a `valence` of 0.9 might be an upbeat, joyous song.
+
+-   A track with a `valence` of 0.1 might be a somber, melancholic song.
+
+```{r distribution of valence difference, fig.height=2.5, warning=FALSE}
+
+ggplot(tv_vs_original_spotify_features, aes(x = valence_difference)) +
+  geom_histogram(fill = "#f5c787", color = "white", bins = 25) +
+  labs(x = "", y = "") +
+  geom_vline(xintercept = 0, color = "black", linewidth = .5) +  # Add vertical line at x = 0
+  facet_wrap(~ original_era) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(0.75)),  # Reduce x-axis text size to 50%
+    axis.text.y = element_text(size = rel(0.75))   # Reduce y-axis text size to 50%
+)
+
+```
+
+This histogram shows the `valence_difference` between the original releases and TV releases. It seems to show that there's more of a spread of change in valence, but generally more songs that have less valence in TV than the original.
+
+I also created the dumbell plot again for valence: When the dot is on the right, it indicates that TV has **more valence** than the original release. Conversely, when the dot is on the left, it indicates that TV has **less valence**.
+
+#### **Comparison of Valence between Original and Taylor's Version**
+
+##### *Taylor's Version = [yellow]{style="color:#f5c787;"}, Sorted by `valence difference` value*
+
+```{r valence dumbell plot - TV vs original, fig.height=7}
+
+# reorder by valence difference now
+tv_vs_original_spotify_features <- tv_vs_original_spotify_features %>%
+  mutate(original_track = reorder(original_track, valence_difference))
+
+ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
+  geom_segment(aes(x = original_valence, xend = tv_valence, y = original_track, yend = original_track),
+               color = "gray", linewidth = .5) +
+  geom_point(aes(x = tv_valence), color = "#f5c787", size = 2, show.legend = TRUE) +
+  labs(title = "", 
+       x = "", y = "") +
+  theme_minimal() +
+  facet_wrap(~ original_era, scales = "free_y") + 
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  geom_text(aes(x = ifelse(original_valence > tv_valence, original_valence, tv_valence) + 0.03,
+                label = round(valence_difference, 2)), 
+            hjust = 0, vjust = 0.5, color = "black", size = 2)  # Add text labels for acousticness_difference
+
+```
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/08gavXombT6KR0af88i9tA?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/2m3ObD945KvpE5y9A1eUWm?utm_source=generator" width="100%" height="200" frameBorder="0" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+
+</iframe>
+
 ## Audio Feature Difference Significance
 
 I was curious if these differences are actually statistically significant. **Are Taylor's Version songs statistically more likely to be less acoustic or less danceable?**
@@ -662,12 +661,12 @@ for (feature in features) {
 
 ```
 
-| Grade        | p-value result              | interpretation                           |
+| Feature                                    | p-value result              | Interpretation                           |
 |:------------------|:--------------------|:-------------------------------|
-| Acousticness | `r round(results1[1,2], 5)` | p \> 0.05, not statistically significant |
-| Danceability | `r round(results1[3,2], 5)` | p \> 0.05, not statistically significant |
-| Liveness     | `r round(results1[4,2], 5)` | p \> 0.05, not statistically significant |
-| Valence      | `r round(results1[2,2], 5)` | p \> 0.05, not statistically significant |
+| [**Acousticness**]{style="color:#884752;"} | `r round(results1[1,2], 5)` | p \> 0.05, not statistically significant |
+| [**Danceability**]{style="color:#9f88a4;"} | `r round(results1[3,2], 5)` | p \> 0.05, not statistically significant |
+| [**Liveness**]{style="color:#7a8a96;"}     | `r round(results1[4,2], 5)` | p \> 0.05, not statistically significant |
+| [**Valence**]{style="color:#f5c787;"}      | `r round(results1[2,2], 5)` | p \> 0.05, not statistically significant |
 
 Ultimately, the t-tests showed that there wasn't a significant difference between Taylor's Version and the original versions of the songs for any of the measures.
 
@@ -799,12 +798,12 @@ for (dt in difference_types) {
 
 ```
 
-| Grade                   | p-value result              | interpretation                                     |
+| Feature                                                   | p-value result              | interpretation                                     |
 |:------------------|:--------------------|:-------------------------------|
-| Acousticness Difference | `r round(results2[1,2], 5)` | p \< 0.05, [statistically significant]{.underline} |
-| Danceability Difference | `r round(results2[3,2], 5)` | p \> 0.05, not statistically significant           |
-| Liveness Difference     | `r round(results2[4,2], 5)` | p \> 0.05, not statistically significant           |
-| Valence Difference      | `r round(results2[2,2], 5)` | p \> 0.05, not statistically significant           |
+| [**Acousticness**]{style="color:#884752;"} **Difference** | `r round(results2[1,2], 5)` | p \< 0.05, [statistically significant]{.underline} |
+| [**Danceability**]{style="color:#9f88a4;"} **Difference** | `r round(results2[3,2], 5)` | p \> 0.05, not statistically significant           |
+| [**Liveness**]{style="color:#7a8a96;"} **Difference**     | `r round(results2[4,2], 5)` | p \> 0.05, not statistically significant           |
+| [**Valence**]{style="color:#f5c787;"} **Difference**      | `r round(results2[2,2], 5)` | p \> 0.05, not statistically significant           |
 
 The result of the t-test seems to show that having the same-ish producers does have a statistically significant impact on the change in `acousticness` of the song.
 
