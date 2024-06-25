@@ -1,5 +1,5 @@
 ---
-title: "Taylor Swift EDA (part 2)"
+title: "Taylor Swift EDA"
 author: "Kaitlyn Barbour"
 date: "`r Sys.Date()`"
 output:
@@ -146,20 +146,13 @@ rmarkdown::paged_table(song_producers[, 1:10])
 
 ## Color Palette Setup
 
-Create color palette & specify colors/opacity for top writers and producers
+I wanted to create one consistent color palette for use across all of the charts & specify colors for the eras and producers. 
+
+I used colors from the eras tour posters to create a color scheme for the eras, and assigned hex codes to the producers based off of the album they had the most producer credits. In the case of Max Martin and Shellback who had the same amount of credits for 1989 and reputation, I chose to make Max Martin reputation colors and Shellback 1989 colors since Shellback helped with the 1989 TV rerecordings.
+
+![](images/eras_colors.png)
 
 ```{r color palette stuff, class.source = "fold-show"}
-# colors for plot
-top_collaborator_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
-                                                     "Joe Alwyn" = "#b8b8b4", 
-                                                     "Aaron Dessner" = "#ecedee",
-                                                     "Jack Antonoff" = "#454d64", 
-                                                     "Nathan Chapman" = "#f5c787", 
-                                                     "Christopher Rowe" = "#d7b472",
-                                                     "Max Martin" = "#312c2e",
-                                                     "Shellback" = "#7a8a96", 
-                                                     "Dan Wilson" = "#884752", 
-                                                     "Joel Little" = "#c687a0"))
 
 eras_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
                                          "Fearless" = "#f5c787", 
@@ -177,10 +170,19 @@ eras_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
                                          "1989 (TV)" = "#b7e2f4", 
                                          "TTPD" = "#ecedee"))
 
+top_collaborator_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
+                                                     "Joe Alwyn" = "#b8b8b4", 
+                                                     "Aaron Dessner" = "#ecedee",
+                                                     "Jack Antonoff" = "#454d64", 
+                                                     "Nathan Chapman" = "#f5c787", 
+                                                     "Christopher Rowe" = "#d7b472",
+                                                     "Max Martin" = "#312c2e",
+                                                     "Shellback" = "#7a8a96", 
+                                                     "Dan Wilson" = "#884752", 
+                                                     "Joel Little" = "#c687a0"))
 
 ```
 
-![](images/eras_colors.png)
 
 #  {.unlisted .unnumbered}
 
