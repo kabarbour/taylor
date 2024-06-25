@@ -191,7 +191,7 @@ top_collaborator_color_assignment <- color_palette(c("Taylor Swift" = "#b1d1ad",
 
 ## Top 10
 
-Across her career, Taylor Swift has worked with `r length(unique(producer$producer))` individual producers. Most are collaborators on \<5 songs, though a few have had a clear influence on the final sound of the songs. She herself has a production credit on 257 of `r length(unique(spotify_features$track_name))` tracks.
+Across her career, Taylor Swift has worked with `r length(unique(producer$producer))` individual producers. Most are collaborators on \<5 songs, though a few have had a clear influence on the final sound of the songs. She herself has a production credit on 257 of `r length((spotify_features$producer))` tracks (I'm mostly working with 324 though since I'm excluding standalones/collaborations/holiday songs).
 
 ![](images/producers_photos.png)
 
@@ -820,7 +820,7 @@ Other returning producers include: **Jacknife Lee**, **Jeff Bhasker**, **Ryan Te
 
 ## Producer Impact
 
-After identifying the songs with the same producers and those with different ones, we can perform a t-test to determine if there is any reak difference between Taylor's Version songs with the same and different producers.
+After identifying the songs with the same producers and those with different ones, we can perform a t-test to determine if there is any real difference between Taylor's Version songs with the same and different producers.
 
 ```{r producer impact}
 
@@ -931,3 +931,9 @@ ggplot(differences_long, aes(x = same_producers_test, y = difference_value, fill
 
 
 ```
+
+Avenues for future projects:
+
+-   Which songs sound the most similar overall per Spotify across all metrics
+
+-   Producer effect on lyrical themes
