@@ -384,7 +384,7 @@ remove_boxplot_outliers(ggplotly(BOXPLOT_PRODUCER_ACOUSTICNESS))
 
 ![](images/taylorsversion.png)
 
-# Taylor's Version vs Original Audio Features {.tabset}
+# TV vs Original Audio Features {.tabset}
 
 How different are the Taylor's Version releases from the originals? Could that be a result of different producers working on the songs?
 
@@ -703,7 +703,7 @@ ggplot(tv_vs_original_spotify_features, aes(y = original_track)) +
 
 </iframe>
 
-## TV vs Original Difference
+## Audio Feature Difference Significance
 
 I was curious if these differences are actually statistically significant. **Are Taylor's Version songs statistically more likely to be less acoustic or less danceable?**
 
@@ -789,6 +789,12 @@ ggplot(tv_vs_original_longer, aes(x = tv_or_original, y = value, fill = tv_or_or
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 
 ```
+
+#  {.unlisted .unnumbered}
+
+![](images/tvoriginal.png)
+
+# TV vs Original Producer Difference {.tabset}
 
 ## Returning Producers
 
