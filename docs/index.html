@@ -991,6 +991,15 @@ class="section level1 tabset">
 <h1 class="tabset">TV vs Original Producer Difference</h1>
 <div id="returning-producers" class="section level2">
 <h2>Returning Producers</h2>
+<p>Okay, even if the differences aren’t statistically significant
+overall, <em>I</em> still feel like there is a difference between
+Taylor’s Version songs and the original ones. To investigate this, we
+should look at whether having the same or different producers makes a
+difference in the song’s characteristics.</p>
+<p>First, we need to identify which songs have entirely new producers
+and which have the same producers. Once we have this information, we can
+analyze which variables might be significantly affected by this
+change.</p>
 <p>How many producers who worked on the original recordings returned to
 help produce on Taylor’s Version?</p>
 <pre class="r"><code>tv_vs_original_producers &lt;- tv_vs_original_spotify_features %&gt;%
@@ -1017,18 +1026,9 @@ the 1989 TV tracks he was originally on.</p>
 </div>
 <div id="producer-impact" class="section level2">
 <h2>Producer Impact</h2>
-<p>Okay, even if the differences aren’t statistically significant
-overall, I still feel like there is a difference between Taylor’s
-Version songs and the original ones. To investigate this, we should look
-at whether having the same or different producers makes a difference in
-the song’s characteristics.</p>
-<p>First, we need to identify which songs have entirely new producers
-and which have the same producers. Once we have this information, we can
-analyze which variables might be significantly affected by this
-change.</p>
 <p>After identifying the songs with the same producers and those with
-different ones, we can perform a t-test to determine if there is a
-significant difference between Taylor’s Version songs with the same and
+different ones, we can perform a t-test to determine if there is any
+reak difference between Taylor’s Version songs with the same and
 different producers.</p>
 <pre class="r"><code># Function to compare producers
 compare_producers &lt;- function(original, tv) {
